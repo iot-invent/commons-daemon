@@ -72,6 +72,7 @@ static LPCWSTR  PRSRV_PBIN        = L"\\bin";
 static LPCWSTR  PRSRV_SIGNAL      = L"SIGNAL";
 static LPCWSTR  PRSV_JVMOPTS9     = L"JDK_JAVA_OPTIONS=";
 static LPCWSTR  STYPE_INTERACTIVE = L"interactive";
+static LPCWSTR  UPD_COMMAND = L"-jar update.jar";
 
 static LPWSTR       _service_name = NULL;
 /* Allowed procrun commands */
@@ -1414,6 +1415,50 @@ cleanup:
     }
     return rv;
 }
+static DWORD processUpdate() {
+	
+	WCHAR  			updateCmd[SIZ_PATHLEN];
+	LPWSTR 			szJavaHome = SO_JAVAHOME;
+	int 			ret;
+	char 			output[SIZ_PATHLEN];
+	WIN32_FIND_DATA FileData;
+	HANDLE          hSearch;
+	
+	hSearch = FindFirstFile(TEXT("update.jar"), &FileData); 
+	if (hSearch == INVALID_HANDLE_VALUE) { 
+		apxLogWrite(APXLOG_MARK_INFO "No update available");
+		return 0;
+	}
+	FindClose(hSearch);
+	if(!szJavaHome) {
+		if(_jni_jvmpath) {
+			szJavaHome= _jni_jvmpath;
+		}
+	}
+	if(!szJavaHome) {
+		szJavaHome = apxGetJavaSoftHome(NULL, TRUE);
+	}
+	if(!szJavaHome) {
+		szJavaHome = apxGetJavaSoftHome(NULL, FALSE);
+	}
+	if(!szJavaHome) {
+		apxLogWrite(APXLOG_MARK_INFO "No JAVA_HOME for update found.");
+		return 1;
+	}		
+	lstrlcatW(updateCmd, SIZ_PATHLEN, L"\"\"");
+	lstrlcatW(updateCmd, SIZ_PATHLEN, szJavaHome);
+    lstrlcatW(updateCmd, SIZ_PATHLEN, L"bin\\java.exe\" -jar update.jar\"");
+	sprintf(output, "%ls", updateCmd );
+	apxLogWrite(APXLOG_MARK_INFO "Start update '%s'.", output);
+	ret = system(output);
+	apxLogWrite(APXLOG_MARK_INFO "Update result '%d'.", ret);
+	if (!DeleteFileW(TEXT("update.jar"))) {
+		/* Delete failed. Either no access or opened */
+        apxLogWrite(APXLOG_MARK_ERROR "Failed to delete Update file 'update.jar'.");
+        return 1;
+    }
+	
+}
 
 /* Executed when the service receives start event. */
 static DWORD serviceStart()
@@ -1422,7 +1467,8 @@ static DWORD serviceStart()
     DWORD  nArgs;
     LPWSTR *pArgs;
     FILETIME fts;
-
+   
+	
     apxLogWrite(APXLOG_MARK_INFO "Starting service...");
 
     if (!IS_INVALID_HANDLE(gWorker)) {
@@ -1449,6 +1495,8 @@ static DWORD serviceStart()
             /* If the Working path is specified change the current directory */
             SetCurrentDirectoryW(SO_STARTPATH);
         }
+		processUpdate();
+
         if (IS_VALID_STRING(SO_LIBPATH)) {
             /* Add LibraryPath to the PATH */
            apxAddToPathW(gPool, SO_LIBPATH);
