@@ -65,7 +65,7 @@ public final class DaemonLoader
         try {
             /* Check the class name */
             Objects.requireNonNull(className, "className");
-            /* Get the ClassLoader loading this class */
+            /* Gets the ClassLoader loading this class */
             final ClassLoader cl = DaemonLoader.class.getClassLoader();
             if (cl == null) {
                 System.err.println("Cannot retrieve ClassLoader instance");
@@ -122,7 +122,7 @@ public final class DaemonLoader
             /* Check the class name */
             Objects.requireNonNull(className, "className");
 
-            /* Get the ClassLoader loading this class */
+            /* Gets the ClassLoader loading this class */
             final ClassLoader cl = DaemonLoader.class.getClassLoader();
             if (cl == null) {
                 System.err.println("Cannot retrieve ClassLoader instance");
@@ -183,10 +183,10 @@ public final class DaemonLoader
             daemon = c.getConstructor().newInstance();
 
             if (isdaemon) {
-                /* Create a new controller instance */
+                // Create a new controller instance
                 controller = new Controller();
 
-                /* Set the availability flag in the controller */
+                // Set the availability flag in the controller
                 controller.setAvailable(false);
 
                 /* Create context */
@@ -194,7 +194,7 @@ public final class DaemonLoader
                 context.setArguments(args);
                 context.setController(controller);
 
-                /* Now we want to call the init method in the class */
+                // Now we want to call the init method in the class
                 final Object[] arg = new Object[1];
                 arg[0] = context;
                 init.invoke(daemon, arg);
@@ -208,7 +208,7 @@ public final class DaemonLoader
         }
         catch (final InvocationTargetException e) {
             final Throwable thrown = e.getTargetException();
-            /* DaemonInitExceptions can fail with a nicer message */
+            // DaemonInitExceptions can fail with a nicer message
             if (thrown instanceof DaemonInitException) {
                 failed(((DaemonInitException) thrown).getMessageWithCause());
             }
@@ -218,31 +218,29 @@ public final class DaemonLoader
             return false;
         }
         catch (final Throwable t) {
-            /* In case we encounter ANY error, we dump the stack trace and
-             * return false (load, start and stop won't be called).
-             */
+            // In case we encounter ANY error, we dump the stack trace and
+            // return false (load, start and stop won't be called).
             t.printStackTrace(System.err);
             return false;
         }
-        /* The class was loaded and instantiated correctly, we can return */
+        // The class was loaded and instantiated correctly, we can return
         return true;
     }
 
     public static boolean start()
     {
         try {
-            /* Attempt to start the daemon */
+            // Attempt to start the daemon
             start.invoke(daemon);
 
-            /* Set the availability flag in the controller */
+            // Set the availability flag in the controller
             if (controller != null) {
                 controller.setAvailable(true);
             }
 
         } catch (final Throwable t) {
-            /* In case we encounter ANY error, we dump the stack trace and
-             * return false (load, start and stop won't be called).
-             */
+            // In case we encounter ANY error, we dump the stack trace and
+            // return false (load, start and stop won't be called).
             t.printStackTrace(System.err);
             return false;
         }
@@ -252,7 +250,7 @@ public final class DaemonLoader
     public static boolean stop()
     {
         try {
-            /* Set the availability flag in the controller */
+            // Set the availability flag in the controller
             if (controller != null) {
                 controller.setAvailable(false);
             }
@@ -261,9 +259,8 @@ public final class DaemonLoader
             stop.invoke(daemon);
         }
         catch (final Throwable t) {
-            /* In case we encounter ANY error, we dump the stack trace and
-             * return false (load, start and stop won't be called).
-             */
+            // In case we encounter ANY error, we dump the stack trace and
+            // return false (load, start and stop won't be called).
             t.printStackTrace(System.err);
             return false;
         }
@@ -279,9 +276,8 @@ public final class DaemonLoader
             daemon = null;
             controller = null;
         } catch (final Throwable t) {
-            /* In case we encounter ANY error, we dump the stack trace and
-             * return false (load, start and stop won't be called).
-             */
+            // In case we encounter ANY error, we dump the stack trace and
+            // return false (load, start and stop won't be called).
             t.printStackTrace(System.err);
             return false;
         }

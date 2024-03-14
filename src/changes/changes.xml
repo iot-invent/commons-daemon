@@ -40,7 +40,18 @@
     <title>Apache Commons Daemon Release Notes</title>
   </properties>
   <body>
-    <release version="1.3.4" date="TBD" description="Bug fix release">
+    <release version="1.3.5" date="TBD" description="Bug fix release">
+      <!-- Fix -->
+      <action dev="ggregory" type="fix" due-to="step-security-bot, Gary Gregory">
+        [StepSecurity] ci: Harden GitHub Actions #95.
+      </action>
+      <!-- Add -->
+      <!-- Updates -->
+      <action type="update" dev="ggregory" due-to="Dependabot">
+        Bump commons-parent from 57 to 67.
+      </action>
+    </release>
+    <release version="1.3.4" date="2023-05-12" description="Bug fix release">
       <!-- Fix -->
       <action issue="DAEMON-451" type="fix" dev="markt" due-to="kkolinko">
         Procrun. Configured stack size now applies to the main thread when
@@ -58,6 +69,10 @@
       <action issue="DAEMON-459" type="fix" dev="markt" due-to="Klaus Malorny">
         jsvc. Fix DaemonController.reload() only working the first time it is
         called.
+      </action>
+      <action type="fix" dev="markt" due-to="Eastdong">
+        jsvc. Remove incorrent definition 'supported_os' which defined in 
+        psupport.m4 file to fix jsvc build error on riscv64. 
       </action>
       <!-- UPDATES -->
       <action type="update" dev="ggregory" due-to="Dependabot">

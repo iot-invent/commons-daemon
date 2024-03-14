@@ -43,12 +43,12 @@
 Apache Commons Daemon
 ===================
 
-[![GitHub Actions Status](https://github.com/apache/commons-daemon/workflows/Java%20CI/badge.svg)](https://github.com/apache/commons-daemon/actions)
+[![Java CI](https://github.com/apache/commons-daemon/actions/workflows/maven.yml/badge.svg)](https://github.com/apache/commons-daemon/actions/workflows/maven.yml)
 [![Coverage Status](https://codecov.io/gh/apache/commons-daemon/branch/master/graph/badge.svg)](https://app.codecov.io/gh/apache/commons-daemon)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/commons-daemon/commons-daemon/badge.svg)](https://maven-badges.herokuapp.com/maven-central/commons-daemon/commons-daemon/)
-[![Javadocs](https://javadoc.io/badge/commons-daemon/commons-daemon/1.3.3.svg)](https://javadoc.io/doc/commons-daemon/commons-daemon/1.3.3)
-[![CodeQL](https://github.com/apache/commons-daemon/workflows/CodeQL%20CPP/badge.svg)](https://github.com/apache/commons-daemon/actions/workflows/codeql-analysis-cpp.yml?query=workflow%3ACodeQL)
-[![CodeQL](https://github.com/apache/commons-daemon/workflows/CodeQL%20Java/badge.svg)](https://github.com/apache/commons-daemon/actions/workflows/codeql-analysis-java.yml?query=workflow%3ACodeQL)
+[![Javadocs](https://javadoc.io/badge/commons-daemon/commons-daemon/1.3.4.svg)](https://javadoc.io/doc/commons-daemon/commons-daemon/1.3.4)
+[![CodeQL CPP](https://github.com/apache/commons-daemon/actions/workflows/codeql-analysis-cpp.yml/badge.svg)](https://github.com/apache/commons-daemon/actions/workflows/codeql-analysis-cpp.yml)
+[![CodeQL Java](https://github.com/apache/commons-daemon/actions/workflows/codeql-analysis-java.yml/badge.svg)](https://github.com/apache/commons-daemon/actions/workflows/codeql-analysis-java.yml)
 
 Apache Commons Daemon software is a set of utilities and Java support
     classes for running Java applications as server processes. These are
@@ -60,13 +60,13 @@ Documentation
 
 More information can be found on the [Apache Commons Daemon homepage](https://commons.apache.org/proper/commons-daemon).
 The [Javadoc](https://commons.apache.org/proper/commons-daemon/apidocs) can be browsed.
-Questions related to the usage of Apache Commons Daemon should be posted to the [user mailing list][ml].
+Questions related to the usage of Apache Commons Daemon should be posted to the [user mailing list](https://commons.apache.org/mail-lists.html).
 
 Where can I get the latest release?
 -----------------------------------
 You can download source and binaries from our [download page](https://commons.apache.org/proper/commons-daemon/download_daemon.cgi).
 
-Alternatively you can pull it from the central Maven repositories:
+Alternatively, you can pull it from the central Maven repositories:
 
 ```xml
 <dependency>
@@ -91,7 +91,7 @@ You can learn more about contributing via GitHub in our [contribution guidelines
 
 License
 -------
-This code is under the [Apache Licence v2](https://www.apache.org/licenses/LICENSE-2.0).
+This code is under the [Apache License v2](https://www.apache.org/licenses/LICENSE-2.0).
 
 See the `NOTICE.txt` file for required notices and attributions.
 
