@@ -6,7 +6,7 @@
  (the "License"); you may not use this file except in compliance with
  the License.  You may obtain a copy of the License at
 
-      http://www.apache.org/licenses/LICENSE-2.0
+      https://www.apache.org/licenses/LICENSE-2.0
 
  Unless required by applicable law or agreed to in writing, software
  distributed under the License is distributed on an "AS IS" BASIS,
@@ -49,28 +49,27 @@ Getting Started
 ---------------
 
 + Make sure you have a [JIRA account](https://issues.apache.org/jira/).
-+ Make sure you have a [GitHub account](https://github.com/signup/free).
++ Make sure you have a [GitHub account](https://github.com/signup/free). This is not essential, but makes providing patches much easier.
 + If you're planning to implement a new feature it makes sense to discuss your changes on the [dev list](https://commons.apache.org/mail-lists.html) first. This way you can make sure you're not wasting your time on something that isn't considered to be in Apache Commons Daemon's scope.
 + Submit a [Jira Ticket][jira] for your issue, assuming one does not already exist.
   + Clearly describe the issue including steps to reproduce when it is a bug.
   + Make sure you fill in the earliest version that you know has the issue.
 + Find the corresponding [repository on GitHub](https://github.com/apache/?query=commons-),
-[fork](https://help.github.com/articles/fork-a-repo/) and check out your forked repository.
+[fork](https://help.github.com/articles/fork-a-repo/) and check out your forked repository. If you don't have a GitHub account, you can still clone the Commons repository.
 
 Making Changes
 --------------
 
 + Create a _topic branch_ for your isolated work.
-  * Usually you should base your branch on the `master` branch.
-  * A good topic branch name can be the JIRA bug id plus a keyword, e.g. `DAEMON-123-InputStream`.
+  * Usually you should base your branch from the `master` branch.
+  * A good topic branch name can be the JIRA bug id plus a keyword, for example, `DAEMON-123-InputStream`.
   * If you have submitted multiple JIRA issues, try to maintain separate branches and pull requests.
 + Make commits of logical units.
   * Make sure your commit messages are meaningful and in the proper format. Your commit message should contain the key of the JIRA issue.
-  * e.g. `DAEMON-123: Close input stream earlier`
+  * For example, `[DAEMON-123] Close input stream earlier`
 + Respect the original code style:
-  + Only use spaces for indentation.
+  + Only use spaces for indentation; you can check for unnecessary whitespace with `git diff` before committing.
   + Create minimal diffs - disable _On Save_ actions like _Reformat Source Code_ or _Organize Imports_. If you feel the source code should be reformatted create a separate PR for this change first.
-  + Check for unnecessary whitespace with `git diff` -- check before committing.
 + Make sure you have added the necessary tests for your changes, typically in `src/test/java`.
 + Run all the tests with `mvn clean verify` to assure nothing else was accidentally broken.
 
@@ -80,7 +79,7 @@ Making Trivial Changes
 The JIRA tickets are used to generate the changelog for the next release.
 
 For changes of a trivial nature to comments and documentation, it is not always necessary to create a new ticket in JIRA.
-In this case, it is appropriate to start the first line of a commit with '(doc)' instead of a ticket number.
+In this case, it is appropriate to start the first line of a commit with '[doc]' or '[javadoc]' instead of a ticket number.
 
 
 Submitting Changes
@@ -109,7 +108,6 @@ Additional Resources
 + [General GitHub documentation](https://help.github.com/)
 + [GitHub pull request documentation](https://help.github.com/articles/creating-a-pull-request/)
 + [Apache Commons Twitter Account](https://twitter.com/ApacheCommons)
-+ `#apache-commons` IRC channel on `irc.freenode.net`
 
 [cla]:https://www.apache.org/licenses/#clas
 [jira]:https://issues.apache.org/jira/browse/DAEMON

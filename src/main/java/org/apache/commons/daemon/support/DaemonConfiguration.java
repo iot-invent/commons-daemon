@@ -6,7 +6,7 @@
  *  (the "License"); you may not use this file except in compliance with
  *  the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  *  Unless required by applicable law or agreed to in writing, software
  *  distributed under the License is distributed on an "AS IS" BASIS,
@@ -50,13 +50,13 @@ public final class DaemonConfiguration
     /**
      * Default configuration file name.
      */
-    protected final static String DEFAULT_CONFIG        = "daemon.properties";
+    protected static final String DEFAULT_CONFIG        = "daemon.properties";
     /**
      * Property prefix
      */
-    protected final static String PREFIX                = "daemon.";
-    private   final static String BTOKEN                = "${";
-    private   final static String ETOKEN                = "}";
+    protected static final String PREFIX                = "daemon.";
+    private   static final String BTOKEN                = "${";
+    private   static final String ETOKEN                = "}";
 
     private final Properties configurationProperties;
     private final Properties systemProperties;
@@ -86,7 +86,7 @@ public final class DaemonConfiguration
         if (fileName == null) {
             fileName = DEFAULT_CONFIG;
         }
-        
+
         try (InputStream inputStream = new FileInputStream(fileName)) {
             configurationProperties.clear();
             configurationProperties.load(inputStream);
@@ -147,9 +147,7 @@ public final class DaemonConfiguration
      * Gets the configuration property.
      *
      * @param name The name of the property to get.
-     *
      * @throws ParseException if the property is wrongly formatted.
-     *
      * @return  Configuration property including any expansion/replacement
      */
     public String getProperty(final String name)
@@ -173,9 +171,7 @@ public final class DaemonConfiguration
      * daemon.arg[2] = argument 3
      * </pre>
      * @param name The name of the property array to get.
-     *
      * @throws ParseException if the property is wrongly formatted.
-     *
      * @return  Configuration property array including any expansion/replacement
      */
     public String[] getPropertyArray(final String name)

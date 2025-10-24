@@ -5,7 +5,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -41,7 +41,8 @@
 #define STDIN_FILENO  0
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
-#define ONE_MINUTE    (60 * 1000)
+#define ONE_MINUTE_AS_MILLIS    (60 * 1000)
+#define ONE_MINUTE_AS_SEC 60
 
 #ifdef _WIN64
 #define KREG_WOW6432  KEY_WOW64_32KEY
@@ -259,6 +260,8 @@ static BOOL   gSignalValid   = TRUE;
 static APXJAVA_THREADARGS gRargs;
 static APXJAVA_THREADARGS gSargs;
 
+static DWORD stopCalledTime = 0; /* Not stop not started */
+
 DWORD WINAPI eventThread(LPVOID lpParam)
 {
     DWORD dwRotateCnt = SO_LOGROTATE;
@@ -290,6 +293,21 @@ DWORD WINAPI eventThread(LPVOID lpParam)
     UNREFERENCED_PARAMETER(lpParam);
 }
 
+/* Calculate how much time we already spent stopping the service */
+static DWORD waitedSinceStopCmd()
+{
+    DWORD  now = 0;
+    DWORD  waited = 0;
+    now = GetTickCount();
+    if (now >= stopCalledTime)
+        waited = now - stopCalledTime;
+    else {
+        /* we have wrapped to zero */
+        waited = (0xFFFFFFFF - stopCalledTime) + now;
+    }
+    return waited;
+}
+
 /* redirect console stdout/stderr to files
  * so that Java messages can get logged
  * If stderrfile is not specified it will
@@ -305,8 +323,14 @@ static BOOL redirectStdStreams(APX_STDWRAP *lpWrapper, LPAPXCMDLINE lpCmdline)
     if (GetConsoleWindow() == NULL) {
         HWND hc;
         AllocConsole();
-        if ((hc = GetConsoleWindow()) != NULL)
+        if ((hc = GetConsoleWindow()) != NULL) {
+            FILE* fout = 0;
+            FILE* ferr = 0;
+            freopen_s(&fout, "CONOUT$", "w", stdout);
+            freopen_s(&ferr, "CONOUT$", "w", stderr);
             ShowWindow(hc, SW_HIDE);
+            apxLogWrite(APXLOG_MARK_INFO "redirectStdStreams() stdout and stderr reassigned");
+        }
     }
     /* redirect to file or console */
     if (lpWrapper->szStdOutFilename) {
@@ -330,9 +354,11 @@ static BOOL redirectStdStreams(APX_STDWRAP *lpWrapper, LPAPXCMDLINE lpCmdline)
         if ((lpWrapper->fpStdOutFile = _wfsopen(lpWrapper->szStdOutFilename,
                                                L"a",
                                                _SH_DENYNO))) {
-            _dup2(_fileno(lpWrapper->fpStdOutFile), 1);
-            *stdout = *lpWrapper->fpStdOutFile;
+            int ret = _dup2(_fileno(lpWrapper->fpStdOutFile), (_fileno)(stdout));
+            if (ret == -1)
+                apxLogWrite(APXLOG_MARK_ERROR "redirectStdStreams() _dup2 failed on stdout");
             setvbuf(stdout, NULL, _IONBF, 0);
+            setvbuf(lpWrapper->fpStdOutFile, NULL, _IONBF, 0);
         }
         else {
             lpWrapper->szStdOutFilename = NULL;
@@ -356,18 +382,23 @@ static BOOL redirectStdStreams(APX_STDWRAP *lpWrapper, LPAPXCMDLINE lpCmdline)
         if ((lpWrapper->fpStdErrFile = _wfsopen(lpWrapper->szStdErrFilename,
                                                L"a",
                                                _SH_DENYNO))) {
-            _dup2(_fileno(lpWrapper->fpStdErrFile), 2);
-            *stderr = *lpWrapper->fpStdErrFile;
+            int ret = _dup2(_fileno(lpWrapper->fpStdErrFile), (_fileno)(stderr));
+            if (ret == -1)
+                apxLogWrite(APXLOG_MARK_ERROR "redirectStdStreams() _dup2 failed to stderr");
             setvbuf(stderr, NULL, _IONBF, 0);
+            setvbuf(lpWrapper->fpStdErrFile, NULL, _IONBF, 0);
         }
         else {
             lpWrapper->szStdOutFilename = NULL;
         }
     }
     else if (lpWrapper->fpStdOutFile) {
-        _dup2(_fileno(lpWrapper->fpStdOutFile), 2);
-        *stderr = *lpWrapper->fpStdOutFile;
+         /* redirect stderr to stdout file */
+         int ret = _dup2(_fileno(lpWrapper->fpStdOutFile), (_fileno)(stderr));
+         if (ret == -1)
+             apxLogWrite(APXLOG_MARK_ERROR "redirectStdStreams() _dup2 failed to stderr (redirect)");
          setvbuf(stderr, NULL, _IONBF, 0);
+         setvbuf(lpWrapper->fpStdOutFile, NULL, _IONBF, 0);
     }
     return TRUE;
 }
@@ -402,7 +433,7 @@ static void printVersion(void)
 {
     fwprintf(stderr, L"Apache Commons Daemon Service Runner version %S/Win%d (%S)\n",
             PRG_VERSION, PRG_BITS, __DATE__);
-    fwprintf(stderr, L"Copyright (c) 2000-2023 The Apache Software Foundation.\n\n"
+    fwprintf(stderr, L"Copyright (c) 2000-2025 The Apache Software Foundation.\n\n"
                      L"For bug reporting instructions, please see:\n"
                      L"<URL:https://issues.apache.org/jira/browse/DAEMON>.");
 }
@@ -778,6 +809,12 @@ static BOOL docmdInstallService(LPAPXCMDLINE lpCmdline)
         apxLogWrite(APXLOG_MARK_ERROR "Unable to open the Service Manager.");
         return FALSE;
     }
+
+    /* Check the stop timeout value */
+    if (SO_STOPTIMEOUT > 0x7FFFFFFF) {
+        apxLogWrite(APXLOG_MARK_ERROR "StopTimeout can't be lower that 0");
+        return FALSE;
+    }
     /* Check the startup mode */
     if (ST_STARTUP & APXCMDOPT_FOUND) {
     	if (lstrcmpiW(SO_STARTUP, PRSRV_AUTO) == 0) {
@@ -941,6 +978,7 @@ static BOOL docmdStopService(LPAPXCMDLINE lpCmdline)
         return FALSE;
     }
 
+    stopCalledTime = GetTickCount();
     SetLastError(ERROR_SUCCESS);
     /* Open the service */
     if (apxServiceOpen(hService, lpCmdline->szApplication,
@@ -952,15 +990,34 @@ static BOOL docmdStopService(LPAPXCMDLINE lpCmdline)
                                NULL);
         if (!rv) {
             /* Wait for the timeout if any */
-            int  timeout     = SO_STOPTIMEOUT;
-            if (timeout) {
-                int i;
-                for (i = 0; i < timeout; i++) {
-                    rv = apxServiceCheckStop(hService);
-                    apxLogWrite(APXLOG_MARK_DEBUG "apxServiceCheck returns %d.", rv);
-                    if (rv)
-                        break;
-                }
+            int timeout     = SO_STOPTIMEOUT;
+            int waited      = waitedSinceStopCmd();
+            int i;
+            if (!timeout) {
+                /* waiting for ever doesn't look OK here */
+                timeout = ONE_MINUTE_AS_SEC;
+            }
+            apxLogWrite(APXLOG_MARK_DEBUG "docmdStopService Waited %d timeout %d", waited, timeout*1000);
+            if (timeout*1000 > waited) {
+                /*
+                 * it took waited to send the command, the service starts
+                 * counting the timeout once it receives the STOP command
+                 * that is probably after waited but that depends on the
+                 * box we are using, we add 1 second just to be sure.
+                 */
+                timeout = timeout*1000 + waited + 1000;
+            } else {
+                apxLogWrite(APXLOG_MARK_DEBUG "docmdStopService timeout %d too small.", timeout*1000);
+                timeout = 1000; /* we might wait 1 s too much but we check if we have already stopped */
+            }
+            apxLogWrite(APXLOG_MARK_DEBUG "docmdStopService estimated timeout %d milliseconds.", timeout);
+            /* the SO_STOPTIMEOUT applies to the stop command and to the time service needs to stop */
+            for (i = 0; i < timeout; i=i+1000) {
+                /* apxServiceCheckStop waits 1000 ms */
+                rv = apxServiceCheckStop(hService);
+                apxLogWrite(APXLOG_MARK_DEBUG "apxServiceCheck returns %d.", rv);
+                if (rv)
+                    break;
             }
         }
         if (rv)
@@ -1224,16 +1281,26 @@ static DWORD WINAPI serviceStop(LPVOID lpParameter)
     BOOL   wait_to_die = FALSE;
     DWORD  timeout     = SO_STOPTIMEOUT * 1000;
     DWORD  dwCtrlType  = (DWORD)((BYTE *)lpParameter - (BYTE *)0);
+    DWORD  waited = 0;
 
     apxLogWrite(APXLOG_MARK_INFO "Stopping service...");
+    stopCalledTime = GetTickCount();
+    if (dwCtrlType == SERVICE_CONTROL_SHUTDOWN)
+        timeout = MIN(timeout, apxGetMaxServiceTimeout(gPool));
+    if (!timeout) {
+        /* Use 1 minute default */
+        timeout = ONE_MINUTE_AS_MILLIS;
+    }
+    apxLogWrite(APXLOG_MARK_INFO "Stopping service...timeout %d", timeout);
+    /* give a hint for shutdown time */
+    reportServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, timeout);
 
     if (IS_INVALID_HANDLE(gWorker)) {
         apxLogWrite(APXLOG_MARK_INFO "Worker is not defined.");
         return TRUE;    /* Nothing to do */
     }
-    if (timeout > 0x7FFFFFFF)
-        timeout = INFINITE;     /* If the timeout was '-1' wait forewer */
     if (_jni_shutdown) {
+        apxLogWrite(APXLOG_MARK_INFO "Stopping service...timeout %d _jni_shutdown", timeout);
         if (!IS_VALID_STRING(SO_STARTPATH) && IS_VALID_STRING(SO_STOPPATH)) {
             /* If the Working path is specified change the current directory
              * but only if the start path wasn't specified already.
@@ -1270,16 +1337,14 @@ static DWORD WINAPI serviceStop(LPVOID lpParameter)
         }
         else {
             if (lstrcmpA(_jni_sclass, "java/lang/System") == 0) {
-                reportServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, 20 * 1000);
+                /* report progress */
+                reportServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, timeout);
                 apxLogWrite(APXLOG_MARK_DEBUG "Forcing Java JNI System.exit() worker to finish...");
                 return 0;
             }
             else {
                 apxLogWrite(APXLOG_MARK_DEBUG "Waiting for Java JNI stop worker to finish for %s:%s...", _jni_sclass, _jni_smethod);
-                if (!timeout)
-                    apxJavaWait(hWorker, INFINITE, FALSE);
-                else
-                    apxJavaWait(hWorker, timeout, FALSE);
+                apxJavaWait(hWorker, timeout, FALSE);
                 apxLogWrite(APXLOG_MARK_DEBUG "Java JNI stop worker finished.");
             }
         }
@@ -1352,10 +1417,7 @@ static DWORD WINAPI serviceStop(LPVOID lpParameter)
             goto cleanup;
         } else {
             apxLogWrite(APXLOG_MARK_DEBUG "Waiting for stop worker to finish...");
-            if (!timeout)
-                apxHandleWait(hWorker, INFINITE, FALSE);
-            else
-                apxHandleWait(hWorker, timeout, FALSE);
+            apxHandleWait(hWorker, timeout, FALSE);
             apxLogWrite(APXLOG_MARK_DEBUG "Stop worker finished.");
         }
         wait_to_die = TRUE;
@@ -1376,12 +1438,21 @@ cleanup:
         CloseHandle(gSignalThread);
         gSignalEvent = NULL;
     }
-    if (wait_to_die && !timeout)
-        timeout = 300 * 1000;   /* Use the 5 minute default shutdown */
 
-    if (dwCtrlType == SERVICE_CONTROL_SHUTDOWN)
-        timeout = MIN(timeout, apxGetMaxServiceTimeout(gPool));
-    reportServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, timeout);
+    /* We already waited here timeout is msec */
+    waited = waitedSinceStopCmd();
+    apxLogWrite(APXLOG_MARK_DEBUG "Waited %d timeout (%d)", waited, timeout);
+    if (timeout > waited) {
+        timeout = timeout - waited;
+        /* renew the hint message */
+        reportServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, timeout);
+    } else {
+        /* something is wrong, the timeout is too small */
+        apxLogWrite(APXLOG_MARK_DEBUG "Waiting more than the specified timeout (%d)", timeout);
+        /* tell we fail */
+        reportServiceStatus(SERVICE_STOP_PENDING, ERROR_SERVICE_REQUEST_TIMEOUT, 0);
+    }
+        
 
     if (timeout) {
         FILETIME fts, fte;
@@ -1657,11 +1728,14 @@ void WINAPI service_ctrl_handler(DWORD dwCtrlCode)
         case SERVICE_CONTROL_STOP:
             apxLogWrite(APXLOG_MARK_INFO "Service SERVICE_CONTROL_STOP signalled.");
             _exe_shutdown = TRUE;
-            if (SO_STOPTIMEOUT > 0) {
+            stopCalledTime = GetTickCount();
+            /* hint for shutdown time */
+            if (SO_STOPTIMEOUT) {
                 reportServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, SO_STOPTIMEOUT * 1000);
             }
             else {
-                reportServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, 3 * 1000);
+                /* Use 1 minute default */
+                reportServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, ONE_MINUTE_AS_MILLIS);
             }
             /* Stop the service asynchronously */
             stopThread = CreateThread(NULL, 0,
@@ -1886,16 +1960,47 @@ void WINAPI serviceMain(DWORD argc, LPTSTR *argv)
         SetConsoleCtrlHandler((PHANDLER_ROUTINE)console_handler, TRUE);
 
         if (SO_STOPTIMEOUT) {
-            /* we have a stop timeout */
-	    do {
+            /* we wait until the service has stopped or crashed, printing a debug message every 2 seconds */
+            /* we also warn in case the service doesn't stop before the stop timeout */
+            BOOL bLoopWarningIssued = FALSE;
+            int waited = 0;
+            int timeout = SO_STOPTIMEOUT;
+            do {
+                DWORD count = 0;
                 /* wait 2 seconds */
-                apxHandleWait(gWorker, 2000, FALSE);
+                DWORD rv = apxHandleWait(gWorker, 2000, FALSE);
+                if (rv == WAIT_OBJECT_0 && !_exe_shutdown) {
+                    if (!bLoopWarningIssued) {
+                        apxLogWrite(APXLOG_MARK_WARN "Start method returned before stop method was called. This should not happen. Using loop with a fixed sleep of 2 seconds waiting for stop method to be called.");
+                        bLoopWarningIssued = TRUE;
+                    }
+                    /* XXXX apart error are we getting there??? */
+                    Sleep(2000);
+                    count = count + 2;
+                    if (count >= SO_STOPTIMEOUT) {
+                        apxLogWrite(APXLOG_MARK_WARN "waited %d sec, Timeout reached!" , count);
+                        break;
+                    }
+                }
+                if (rv == WAIT_OBJECT_0)
+                    apxLogWrite(APXLOG_MARK_WARN "Worker has crashed or stopped!");
+                else
+                    apxLogWrite(APXLOG_MARK_DEBUG "waiting until Worker is done...");
             } while (!_exe_shutdown);
-            apxLogWrite(APXLOG_MARK_DEBUG "waiting %d sec... shutdown: %d", SO_STOPTIMEOUT, _exe_shutdown);
-            apxHandleWait(gWorker, SO_STOPTIMEOUT*1000, FALSE);
-	} else {
-             apxHandleWait(gWorker, INFINITE, FALSE);
-	}
+
+            /* calculate remaing timeout */
+            waited = waitedSinceStopCmd();
+            if (timeout*1000 > waited) {
+                timeout = timeout*1000 - waited;
+            } else {
+                timeout = 1000; /* 1000 ms in the worse case */
+            }
+            apxLogWrite(APXLOG_MARK_DEBUG "waiting %d milliseconds... shutdown: %d", timeout, _exe_shutdown);
+            apxHandleWait(gWorker, timeout, FALSE);
+        } else {
+            apxLogWrite(APXLOG_MARK_DEBUG "waiting until Worker is done...");
+            apxHandleWait(gWorker, INFINITE, FALSE);
+        }
         apxLogWrite(APXLOG_MARK_DEBUG "Worker finished.");
     }
     else {
@@ -1903,21 +2008,52 @@ void WINAPI serviceMain(DWORD argc, LPTSTR *argv)
         goto cleanup;
     }
     if (gShutdownEvent) {
+        int waited = waitedSinceStopCmd();
+        int timeout = SO_STOPTIMEOUT;
+        BOOL btimeoutelapsed = FALSE;
 
         /* Ensure that shutdown thread exits before us */
         apxLogWrite(APXLOG_MARK_DEBUG "Waiting for ShutdownEvent.");
-        reportServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, ONE_MINUTE);
-        WaitForSingleObject(gShutdownEvent, ONE_MINUTE);
+        reportServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, ONE_MINUTE_AS_MILLIS);
+        WaitForSingleObject(gShutdownEvent, ONE_MINUTE_AS_MILLIS);
         apxLogWrite(APXLOG_MARK_DEBUG "ShutdownEvent signaled.");
         CloseHandle(gShutdownEvent);
         gShutdownEvent = NULL;
 
+        /* calculate the next timeout  here timeout is sec */
+        if (!timeout)
+            timeout = ONE_MINUTE_AS_SEC;
+        apxLogWrite(APXLOG_MARK_DEBUG "Waited %d timeout (%d)", waited, timeout*1000);
+        if (timeout*1000 > waited) {
+            timeout = timeout*1000 - waited;
+        } else {
+            /* something is wrong, the timeout is too small */
+            apxLogWrite(APXLOG_MARK_ERROR "Waiting more than the specified timeout (%d) already waited for %d", timeout, waited/1000);
+            timeout = ONE_MINUTE_AS_MILLIS;
+            btimeoutelapsed = TRUE;
+        }
+
         /* This will cause to wait for all threads to exit
          */
-        apxLogWrite(APXLOG_MARK_DEBUG "Waiting 1 minute for all threads to exit.");
-        reportServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, ONE_MINUTE);
-        apxDestroyJvm(ONE_MINUTE);
-        /* if we are not using JAVA apxDestroyJvm does nothing, check the chid processes in case they hang */
+        apxLogWrite(APXLOG_MARK_DEBUG "Waiting %d milliseconds for all threads to exit.", timeout);
+        reportServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, ONE_MINUTE_AS_MILLIS);
+        if (!apxDestroyJvm(timeout)) {
+            /* if we are not using JAVA apxDestroyJvm does nothing, check the chid processes in case they hang */
+            apxLogWrite(APXLOG_MARK_DEBUG "apxDestroyJvm did nothing or failed");
+            for (;;) {
+                if (!apxProcessTerminateChild( GetCurrentProcessId(), TRUE)) {
+                    /* Just print the children processes once for debugging */
+                    if (btimeoutelapsed)
+                        break;
+                    waited = waitedSinceStopCmd();
+                    if (waited >= timeout)
+                        break; /* Done */
+                    Sleep(1000);
+                } else {
+                    break;
+                }
+            }
+        }
         apxProcessTerminateChild( GetCurrentProcessId(), FALSE); /* FALSE kills! */
     }
     else {
@@ -1927,7 +2063,7 @@ void WINAPI serviceMain(DWORD argc, LPTSTR *argv)
          */
         apxLogWrite(APXLOG_MARK_DEBUG "Waiting for all threads to exit.");
         apxDestroyJvm(INFINITE);
-        reportServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, 0);
+        reportServiceStatus(SERVICE_STOP_PENDING, NO_ERROR, ONE_MINUTE_AS_MILLIS);
     }
     apxLogWrite(APXLOG_MARK_DEBUG "JVM destroyed.");
     reportServiceStatusStopped(apxGetVmExitCode());
@@ -1983,6 +2119,64 @@ BOOL docmdRunService(LPAPXCMDLINE lpCmdline)
     }
     return rv;
 }
+
+BOOL isRunningAsAdministrator(BOOL *bElevated) {
+    BOOL rv = FALSE;
+    HANDLE hToken;
+    TOKEN_ELEVATION tokenInformation;
+    DWORD dwSize;
+
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken)) {
+        goto cleanup;
+    }
+
+    if (!GetTokenInformation(hToken, TokenElevation, &tokenInformation, sizeof(tokenInformation), &dwSize)) {
+        goto cleanup;
+    }
+
+    *bElevated = tokenInformation.TokenIsElevated;
+    rv = TRUE;
+
+cleanup:
+    if (hToken) {
+        CloseHandle(hToken);
+    }
+    return rv;
+}
+
+BOOL restartCurrentProcessWithElevation(DWORD *dwExitCode) {
+    BOOL rv = FALSE;
+    TCHAR szPath[MAX_PATH];
+    SHELLEXECUTEINFO shellExecuteInfo;
+
+    SetLastError(0);
+    GetModuleFileName(NULL, szPath, MAX_PATH);
+    if (GetLastError()) {
+        goto cleanup;
+    }
+
+    shellExecuteInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+    shellExecuteInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+    shellExecuteInfo.hwnd = NULL;
+    shellExecuteInfo.lpVerb = L"runas";
+    shellExecuteInfo.lpFile = szPath;
+    shellExecuteInfo.lpParameters = PathGetArgs(GetCommandLine());
+    shellExecuteInfo.lpDirectory = NULL;
+    shellExecuteInfo.nShow = SW_SHOWNORMAL;
+    shellExecuteInfo.hInstApp = NULL;
+
+    if (!ShellExecuteEx(&shellExecuteInfo)) {
+        goto cleanup;
+    }
+    WaitForSingleObject(shellExecuteInfo.hProcess, INFINITE);
+    GetExitCodeProcess(shellExecuteInfo.hProcess, dwExitCode);
+
+    rv = TRUE;
+
+cleanup:
+    return rv;
+}
+
 
 static const char *gSzProc[] = {
     "",
@@ -2086,6 +2280,30 @@ void __cdecl main(int argc, char **argv)
                         "Apache Commons Daemon procrun stderr initialized.\n",
                         t.wYear, t.wMonth, t.wDay,
                         t.wHour, t.wMinute, t.wSecond);
+        fflush(stdout);
+	fflush(stderr);
+    }
+
+    if (lpCmdline->dwCmdIndex > 2 && lpCmdline->dwCmdIndex < 8) {
+        /* Command requires elevation */
+        BOOL bElevated;
+        if (!isRunningAsAdministrator(&bElevated)) {
+            apxDisplayError(FALSE, NULL, 0, "Unable to determine if process has administrator privileges. Continuing as if it has.\n");
+        } else {
+            if (!bElevated) {
+                DWORD dwExitCode;
+                if (!restartCurrentProcessWithElevation(&dwExitCode)) {
+                    apxDisplayError(FALSE, NULL, 0, "Failed to elevate current process.\n");
+                    rv = lpCmdline->dwCmdIndex + 2;
+                } else {
+                    if (dwExitCode) {
+                        apxDisplayError(FALSE, NULL, 0, "Running from a command prompt with administrative privileges may show further error details.\n");
+                    }
+                    rv = dwExitCode;
+                }
+                goto cleanup;
+            }
+        }
     }
     switch (lpCmdline->dwCmdIndex) {
         case 1: /* Run Service as console application */
@@ -2096,23 +2314,23 @@ void __cdecl main(int argc, char **argv)
             if (!docmdRunService(lpCmdline))
                 rv = 4;
         break;
-        case 3: /* Start service */
+        case 3: /* Start service - requires elevation */
             if (!docmdStartService(lpCmdline))
                 rv = 5;
         break;
-        case 4: /* Stop Service */
+        case 4: /* Stop Service - requires elevation */
             if (!docmdStopService(lpCmdline))
                 rv = 6;
         break;
-        case 5: /* Update Service parameters */
+        case 5: /* Update Service parameters  - requires elevation */
             if (!docmdUpdateService(lpCmdline))
                 rv = 7;
         break;
-        case 6: /* Install Service */
+        case 6: /* Install Service - requires elevation */
             if (!docmdInstallService(lpCmdline))
                 rv = 8;
         break;
-        case 7: /* Delete Service */
+        case 7: /* Delete Service  - requires elevation */
             if (!docmdDeleteService(lpCmdline))
                 rv = 9;
         break;
@@ -2143,7 +2361,7 @@ cleanup:
                                       rv, gSzProc[ix]);
         if (ix > 2 && !_service_mode) {
             /* Print something to the user console */
-            apxDisplayError(FALSE, NULL, 0, "Failed to %s.", gSzProc[ix]);
+            apxDisplayError(FALSE, NULL, 0, "Failed to %s.\n", gSzProc[ix]);
         }
     }
     else

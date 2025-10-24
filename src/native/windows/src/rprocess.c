@@ -5,7 +5,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -408,6 +408,22 @@ BOOL apxProcessTerminateChild(DWORD dwProcessId, BOOL dryrun)
               apxLogWrite(APXLOG_MARK_DEBUG "Process ID: 0x%08X (%d) Termination failed!",  treeProcessId[i], treeProcessId[i]);
            }
        }
+    } else {
+       /* Check if we have child processes and return FALSE if not */
+        HANDLE hProcess;
+        for (i=0; i<maxProcessId; i++) {
+           if (treeProcessId[i] == 0) {
+              break; /* Done */
+           }
+           hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, treeProcessId[i]);
+           if(hProcess != NULL) {
+              apxLogWrite(APXLOG_MARK_DEBUG "Process ID: 0x%08X (%d) Still here!", treeProcessId[i], treeProcessId[i]);
+              CloseHandle(hProcess);
+              CloseHandle(hProcessSnap);
+              return(FALSE);
+           }
+       }
+       
     }
 
     CloseHandle(hProcessSnap);

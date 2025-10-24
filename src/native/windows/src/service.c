@@ -5,7 +5,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -156,13 +156,13 @@ apxServiceOpen(APXHANDLE hService, LPCWSTR szServiceName, DWORD dwOptions)
     if (!apxGetServiceDescriptionW(szServiceName,
                                    lpService->stServiceEntry.szServiceDescription,
                                    SIZ_DESLEN)) {
-        apxLogWrite(APXLOG_MARK_WARN "Failed to obtain service description for '%s'", szServiceName);
+        apxLogWrite(APXLOG_MARK_WARN "Failed to obtain service description for '%S'", szServiceName);
         lpService->stServiceEntry.szServiceDescription[0] = L'\0';
     }
     if (!apxGetServiceUserW(szServiceName,
                             lpService->stServiceEntry.szObjectName,
                             SIZ_RESLEN)) {
-        apxLogWrite(APXLOG_MARK_WARN "Failed to obtain service user name for '%s'", szServiceName);
+        apxLogWrite(APXLOG_MARK_WARN "Failed to obtain service user name for '%S'", szServiceName);
         lpService->stServiceEntry.szObjectName[0] = L'\0';
     }
     if (!QueryServiceConfigW(lpService->hService, NULL, 0, &dwNeeded)) {

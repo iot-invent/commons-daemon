@@ -5,7 +5,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -850,7 +850,7 @@ static int child(arg_data *args, home_data *data, uid_t uid, gid_t gid)
     /* Check wether we need to dump the VM version */
     if (args->vers == true) {
         log_error("jsvc (Apache Commons Daemon) " JSVC_VERSION_STRING);
-        log_error("Copyright (c) 1999-2023 Apache Software Foundation.");
+        log_error("Copyright (c) 1999-2025 Apache Software Foundation.");
         if (java_version() != true) {
             return -1;
         }
@@ -1308,7 +1308,7 @@ static int run_controller(arg_data *args, home_data *data, uid_t uid, gid_t gid)
      * These will be replaced in the child process.
      */
     memset(&act, '\0', sizeof(act));
-    act.sa_handler = controller;
+    act.sa_sigaction = controller;
     sigemptyset(&act.sa_mask);
     act.sa_flags = SA_RESTART | SA_NOCLDSTOP | SA_SIGINFO;
 

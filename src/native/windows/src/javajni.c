@@ -5,7 +5,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -486,8 +486,10 @@ apxDestroyJvm(DWORD dwTimeout)
         CloseHandle(hWaiter);
         return rv;
     }
-    else
+    else {
+        apxLogWrite(APXLOG_MARK_DEBUG "apxDestroyJvm No JVM so Done");
         return FALSE;
+    }
 }
 
 static BOOL __apxIsJava9()

@@ -6,7 +6,7 @@
  *  (the "License"); you may not use this file except in compliance with
  *  the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  *  Unless required by applicable law or agreed to in writing, software
  *  distributed under the License is distributed on an "AS IS" BASIS,
@@ -175,7 +175,7 @@ public final class DaemonPermission extends Permission
      * permission name.
      * <p>
      * This constructor will create a new {@code DaemonPermission}
-     * instance that <b>will not</b> grant any permission to the caller.
+     * instance that <strong>will not</strong> grant any permission to the caller.
      *
      * @param target The target name of this permission.
      * @throws IllegalArgumentException If the specified target name is not
@@ -221,7 +221,7 @@ public final class DaemonPermission extends Permission
 
         // Create the appropriate mask if this is a control permission.
         if (this.type == TYPE_CONTROL) {
-            this.mask = this.createControlMask(actions);
+            this.mask = createControlMask(actions);
         }
     }
 
@@ -239,7 +239,7 @@ public final class DaemonPermission extends Permission
     public String getActions()
     {
         if (this.type == TYPE_CONTROL) {
-            return this.createControlActions(this.mask);
+            return createControlActions(this.mask);
         }
         return "";
     }
@@ -252,14 +252,14 @@ public final class DaemonPermission extends Permission
     @Override
     public int hashCode()
     {
-        this.setupDescription();
+        setupDescription();
         return this.desc.hashCode();
     }
 
     /**
      * Checks if a specified object equals {@code DaemonPermission}.
      *
-     * @return <b>true</b> or <b>false</b> whether the specified object equals
+     * @return <strong>true</strong> or <strong>false</strong> whether the specified object equals
      *         this {@code DaemonPermission} instance or not.
      */
     @Override
@@ -285,7 +285,7 @@ public final class DaemonPermission extends Permission
      * Checks if this {@code DaemonPermission} implies another
      * {@code Permission}.
      *
-     * @return <b>true</b> or <b>false</b> whether the specified permission
+     * @return <strong>true</strong> or <strong>false</strong> whether the specified permission
      *         is implied by this {@code DaemonPermission} instance or
      *         not.
      */
@@ -317,7 +317,7 @@ public final class DaemonPermission extends Permission
     @Override
     public String toString()
     {
-        this.setupDescription();
+        setupDescription();
         return this.desc;
     }
 
@@ -346,7 +346,7 @@ public final class DaemonPermission extends Permission
             break;
         }
         buf.append(':');
-        buf.append(this.getActions());
+        buf.append(getActions());
         buf.append(']');
 
         this.desc = buf.toString();
